@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="VEGA Frame Grid Generator - Convert video to seamless square sprite sheets entirely in your browser." />
+  <meta name="theme-color" content="#0B0B10" />
+  <title>VEGA Frame Grid Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./src/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <header class="header">
+    <div class="logo-area">
+      <div class="logo-mark">V</div>
+      <div class="logo-text">
+        <span class="brand">VEGA UNIVERSE</span>
+        <span class="product">Frame Grid Generator</span>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="#" id="aboutBtn">About</a>
+    </nav>
+  </header>
+
+  <div class="app-layout">
+    <!-- LEFT PANEL -->
+    <aside class="panel" id="leftPanel">
+      <div class="section">
+        <div class="panel-title">Video Source</div>
+        <div class="upload-zone" id="uploadZone">
+          <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p>Drag & drop video here<br/>or <span class="browse-btn">browse files</span></p>
+          <p class="text-sm text-muted" style="margin-top:0.5rem">MP4 · WebM · MOV</p>
+          <input type="file" id="fileInput" accept="video/mp4,video/webm,video/quicktime,video/*" />
+        </div>
+
+        <div id="videoSection" class="hidden">
+          <div class="video-preview-wrap">
+            <video id="previewVideo" controls playsinline muted></video>
+          </div>
+          <div class="video-actions">
+            <button class="btn btn-secondary btn-sm" id="replaceBtn">Replace</button>
+            <button class="btn btn-ghost btn-sm" id="removeBtn">Remove</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section hidden" id="infoSection">
+        <div class="panel-title">Video Information</div>
+        <div class="info-grid" id="infoGrid">
+          <div class="info-item full">
+            <div class="label">File Name</div>
+            <div class="value" id="infoName">—</div>
+          </div>
+          <div class="info-item">
+            <div class="label">Size</div>
+            <div class="value" id="infoSize">—</div>
+          </div>
+          <div class="info-item">
+            <div class="label">Duration</div>
+            <div class="value" id="infoDuration">—</div>
+          </div>
+          <div class="info-item">
+            <div class="label">Resolution</div>
+            <div class="value" id="infoRes">—</div>
+          </div>
+          <div class="info-item">
+            <div class="label">Aspect Ratio</div>
+            <div class="value" id="infoAspect">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section hidden" id="timelineSection">
+        <div class="panel-title">Timeline Range</div>
+        <div class="form-group">
+          <label>Start Time <span class="range-value" id="startTimeVal">0.00s</span></label>
+          <input type="range" id="startTime" min="0" max="100" step="0.01" value="0" />
+        </div>
+        <div class="form-group">
+          <label>End Time <span class="range-value" id="endTimeVal">0.00s</span></label>
+          <input type="range" id="endTime" min="0" max="100" step="0.01" value="100" />
+        </div>
+        <div class="info-item" style="margin-bottom:0.5rem">
+          <div class="label">Selected Duration</div>
+          <div class="value" id="selectedDuration">—</div>
+        </div>
+        <button class="btn btn-secondary btn-sm btn-block" id="resetRangeBtn">Reset Range</button>
+      </div>
+    </aside>
+
+    <!-- CENTER WORKSPACE -->
+    <main class="workspace">
+      <div class="alert alert-error" id="errorAlert"></div>
+      <div class="alert alert-warning" id="warnAlert"></div>
+      <div class="alert alert-success" id="successAlert"></div>
+
+      <div class="workspace-toolbar">
+        <button class="btn btn-primary" id="generateBtn" disabled>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Generate Sprite Sheet
+        </button>
+        <button class="btn btn-danger hidden" id="cancelBtn">Cancel</button>
+        <div class="sheet-nav hidden" id="sheetNav">
+          <button class="btn btn-secondary btn-icon btn-sm" id="prevSheetBtn" title="Previous">‹</button>
+          <span id="sheetLabel">Sheet 1 / 1</span>
+          <button class="btn btn-secondary btn-icon btn-sm" id="nextSheetBtn" title="Next">›</button>
+        </div>
+        <div class="download-group hidden" id="downloadBar">
+          <button class="btn btn-primary" id="downloadPngBtn">Download PNG</button>
+          <button class="btn btn-secondary" id="downloadJpgBtn">Download JPG</button>
+          <button class="btn btn-secondary" id="downloadZipBtn">Download ZIP</button>
+        </div>
+      </div>
+
+      <div class="progress-bar-wrap" id="progressWrap">
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-meta">
+          <span id="progressStatus">Processing…</span>
+          <span id="progressPercent">0%</span>
+        </div>
+      </div>
+
+      <div class="preview-area" id="previewArea">
+        <div class="preview-placeholder" id="previewPlaceholder">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M3 9h18M9 21V9"/>
+          </svg>
+          <p>Upload a video and click <strong>Generate</strong><br/>to create your sprite sheet</p>
+        </div>
+        <div id="previewHost" class="preview-host hidden"></div>
+        <div class="preview-controls hidden" id="previewControls">
+          <button class="btn btn-ghost btn-sm" id="zoomInBtn" title="Zoom In">+</button>
+          <button class="btn btn-ghost btn-sm" id="zoomOutBtn" title="Zoom Out">−</button>
+          <button class="btn btn-ghost btn-sm" id="fitBtn" title="Fit to Screen">Fit</button>
+          <label class="option-item" style="padding:0.25rem 0.5rem;margin:0;font-size:0.75rem;">
+            <input type="checkbox" id="toggleGrid" /> Grid
+          </label>
+          <label class="option-item" style="padding:0.25rem 0.5rem;margin:0;font-size:0.75rem;">
+            <input type="checkbox" id="toggleNumbers" /> Numbers
+          </label>
+        </div>
+      </div>
+
+      <div class="output-info hidden" id="outputInfo">
+        <div class="info-item">
+          <div class="label">Frames</div>
+          <div class="value" id="outFrames">—</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Grid</div>
+          <div class="value" id="outGrid">—</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Sheets</div>
+          <div class="value" id="outSheets">—</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Output</div>
+          <div class="value" id="outRes">—</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Cell Size</div>
+          <div class="value" id="outCell">—</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Mode</div>
+          <div class="value" id="outMode">—</div>
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside class="panel" id="rightPanel">
+      <div class="section">
+        <div class="panel-title">Extraction Mode</div>
+        <div class="mode-tabs">
+          <button class="mode-tab active" data-mode="normal">Normal</button>
+          <button class="mode-tab" data-mode="fps">FPS</button>
+          <button class="mode-tab" data-mode="interval">Interval</button>
+        </div>
+
+        <div class="mode-panel active" id="modeNormal">
+          <p class="text-sm text-muted">Evenly samples frames across the selected timeline to exactly fill the grid.</p>
+        </div>
+
+        <div class="mode-panel" id="modeFps">
+          <div class="form-group">
+            <label>Frames Per Second</label>
+            <select id="fpsSelect">
+              <option value="1">1 FPS</option>
+              <option value="2">2 FPS</option>
+              <option value="5" selected>5 FPS</option>
+              <option value="10">10 FPS</option>
+              <option value="15">15 FPS</option>
+              <option value="24">24 FPS</option>
+              <option value="30">30 FPS</option>
+              <option value="60">60 FPS</option>
+              <option value="custom">Custom…</option>
+            </select>
+          </div>
+          <div class="form-group hidden" id="customFpsGroup">
+            <label>Custom FPS</label>
+            <input type="number" id="customFps" min="0.1" max="120" step="0.1" value="12" />
+          </div>
+          <div class="form-group">
+            <label>If frames exceed grid</label>
+            <div class="option-group">
+              <label class="option-item active" data-overflow="multi">
+                <input type="radio" name="overflow" value="multi" checked /> Multiple sprite sheets
+              </label>
+              <label class="option-item" data-overflow="sample">
+                <input type="radio" name="overflow" value="sample" /> Sample to fit one sheet
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="mode-panel" id="modeInterval">
+          <div class="form-group">
+            <label>Frame Interval <span class="range-value" id="intervalVal">1.00s</span></label>
+            <input type="range" id="intervalSlider" min="0.05" max="10" step="0.05" value="1" />
+            <div class="range-labels"><span>0.05s</span><span>10s</span></div>
+          </div>
+          <div class="form-group">
+            <label>Or enter exact interval (seconds)</label>
+            <input type="number" id="intervalInput" min="0.01" max="60" step="0.01" value="1" />
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="panel-title">Grid Settings</div>
+        <div class="form-group">
+          <label>Grid Size</label>
+          <select id="gridSelect">
+            <option value="4">4 × 4 (16 frames)</option>
+            <option value="8" selected>8 × 8 (64 frames)</option>
+            <option value="16">16 × 16 (256 frames)</option>
+            <option value="32">32 × 32 (1024 frames)</option>
+            <option value="custom">Custom…</option>
+          </select>
+        </div>
+        <div class="form-row hidden" id="customGridRow">
+          <div class="form-group" style="flex:1;margin:0">
+            <label>Columns</label>
+            <input type="number" id="customCols" min="1" max="64" value="8" />
+          </div>
+          <div class="form-group" style="flex:1;margin:0">
+            <label>Rows</label>
+            <input type="number" id="customRows" min="1" max="64" value="8" />
+          </div>
+        </div>
+        <div class="form-group mt-1">
+          <label>Incomplete Grid</label>
+          <select id="incompleteSelect">
+            <option value="repeat" selected>Repeat Last Frame</option>
+            <option value="loop">Loop Frames</option>
+            <option value="transparent">Transparent Empty (PNG)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="panel-title">Frame Fit</div>
+        <div class="option-group">
+          <label class="option-item active" data-fit="crop">
+            <input type="radio" name="fit" value="crop" checked /> Center Crop
+          </label>
+          <label class="option-item" data-fit="stretch">
+            <input type="radio" name="fit" value="stretch" /> Stretch to Fit
+          </label>
+          <label class="option-item" data-fit="contain">
+            <input type="radio" name="fit" value="contain" /> Contain
+          </label>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="panel-title">Output Resolution</div>
+        <div class="form-group">
+          <select id="resSelect">
+            <option value="512">512 × 512</option>
+            <option value="1024">1024 × 1024 (1K)</option>
+            <option value="2048" selected>2048 × 2048 (2K)</option>
+            <option value="4096">4096 × 4096 (4K)</option>
+            <option value="custom">Custom…</option>
+          </select>
+        </div>
+        <div class="form-group hidden" id="customResGroup">
+          <label>Custom size (px, square)</label>
+          <input type="number" id="customRes" min="64" max="8192" step="1" value="2048" />
+        </div>
+        <p class="memory-hint" id="memoryHint">Est. canvas memory: ~16 MB</p>
+      </div>
+
+      <div class="section">
+        <div class="panel-title">Export</div>
+        <div class="form-group">
+          <label>JPG Quality <span class="range-value" id="jpgQualityVal">95%</span></label>
+          <input type="range" id="jpgQuality" min="1" max="100" value="95" />
+        </div>
+        <label class="option-item" style="margin-top:0.5rem">
+          <input type="checkbox" id="includeFramesZip" /> Include individual frames in ZIP
+        </label>
+      </div>
+    </aside>
+  </div>
+
+  <!-- About Modal -->
+  <div class="modal-overlay" id="aboutModal">
+    <div class="modal">
+      <h2>VEGA Frame Grid Generator</h2>
+      <p>Part of <strong>VEGA UNIVERSE</strong>. Convert any video into seamless square 1:1 sprite sheets entirely in your browser.</p>
+      <p>100% client-side · No uploads · No API keys · Privacy-friendly · GitHub Pages ready.</p>
+      <p class="text-sm text-muted">Supports Normal (even sampling), FPS-based, and custom interval extraction modes. Export as PNG, JPG, or ZIP.</p>
+      <button class="btn btn-primary close-btn" id="closeAboutBtn">Close</button>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
